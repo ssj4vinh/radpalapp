@@ -1,0 +1,15 @@
+elevenlabs
+requests
+
+[audio]
+soundfile
+librosa
+numpy
+
+[dev]
+pytest
+black
+flake8
+
+[mfa]
+montreal-forced-aligner>=3.0.0

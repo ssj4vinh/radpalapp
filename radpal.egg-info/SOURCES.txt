@@ -1,0 +1,9 @@
+generate_custom_pronunciations.py
+generate_wavs.py
+setup.py
+radpal.egg-info/PKG-INFO
+radpal.egg-info/SOURCES.txt
+radpal.egg-info/dependency_links.txt
+radpal.egg-info/entry_points.txt
+radpal.egg-info/requires.txt
+radpal.egg-info/top_level.txt
