@@ -3005,6 +3005,7 @@ ipcMain.handle('register-global-hotkeys', (_event, shortcuts) => {
 const { globalShortcut } = require('electron')
 
 let mainWindow = null;
+let popupWindow = null;
 
 // Configure auto-updater if available
 if (autoUpdater) {
