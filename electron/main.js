@@ -3408,7 +3408,7 @@ app.on('will-quit', () => {
   }
   
   // Cleanup dictation on app exit
-  if (useDeepgram && deepgramDictationManager) {
+  if (deepgramDictationManager) {
     console.log('🛑 Cleaning up Deepgram dictation on app exit...');
     try {
       deepgramDictationManager.stopDictation();
