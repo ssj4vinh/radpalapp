@@ -3081,15 +3081,80 @@ ipcMain.handle('install-update', () => {
     console.log('🔄 Installing update, marking as updating...');
     isUpdating = true;
     
-    // Force close all windows first
+    // Kill all child processes first
+    if (process.platform === 'win32') {
+      try {
+        // Kill llama server
+        if (llamaServerProcess) {
+          try {
+            spawnSync('taskkill', ['/pid', llamaServerProcess.pid, '/f', '/t']);
+          } catch (e) {}
+          llamaServerProcess = null;
+        }
+        
+        // Kill RadPalHotkeys
+        if (radpalHotkeysProcess) {
+          try {
+            spawnSync('taskkill', ['/pid', radpalHotkeysProcess.pid, '/f', '/t']);
+          } catch (e) {}
+          radpalHotkeysProcess = null;
+        }
+        
+        // Kill any other RadPal processes
+        spawnSync('taskkill', ['/F', '/IM', 'llama-server.exe'], { timeout: 500 });
+        spawnSync('taskkill', ['/F', '/IM', 'RadPalHotkeys.exe'], { timeout: 500 });
+      } catch (e) {
+        console.error('Error killing processes before update:', e);
+      }
+    }
+    
+    // Clear intervals
+    if (windowMonitorInterval) {
+      clearInterval(windowMonitorInterval);
+      windowMonitorInterval = null;
+    }
+    
+    // Cleanup hardware
+    if (powerMicManager) {
+      try {
+        powerMicManager.cleanup();
+      } catch (e) {}
+    }
+    
+    if (deepgramDictationManager) {
+      try {
+        deepgramDictationManager.stopDictation();
+      } catch (e) {}
+    }
+    
+    // Force close all windows
     BrowserWindow.getAllWindows().forEach(window => {
-      window.destroy();
+      try {
+        window.destroy();
+      } catch (e) {}
     });
     
-    // Let electron-updater handle the rest
+    // Force quit and install
     setTimeout(() => {
-      autoUpdater.quitAndInstall(false, true);
-    }, 100);
+      console.log('🔄 Calling quitAndInstall...');
+      autoUpdater.quitAndInstall(true, true); // silent = true, forceRunAfter = true
+      
+      // Aggressive fallback - if app doesn't quit in 2 seconds, force it
+      setTimeout(() => {
+        console.log('⚠️ Force exiting app for update...');
+        if (process.platform === 'win32') {
+          // Use PowerShell to kill this process and all children
+          const currentPid = process.pid;
+          try {
+            spawnSync('powershell', [
+              '-Command',
+              `Stop-Process -Id ${currentPid} -Force`
+            ], { timeout: 1000 });
+          } catch (e) {}
+        }
+        process.exit(0);
+      }, 2000);
+    }, 500);
   }
 });
 
