@@ -75,7 +75,7 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowElevation": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
@@ -83,7 +83,8 @@
       "perMachine": false,
       "runAfterFinish": true,
       "license": "LICENSE.txt",
-      "warningsAsErrors": false
+      "warningsAsErrors": false,
+      "differentialPackage": false
     },
     "mac": {
       "target": "dmg"

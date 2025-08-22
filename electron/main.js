@@ -3141,10 +3141,10 @@ ipcMain.handle('install-update', () => {
       
       // Set auto-install flags
       autoUpdater.autoInstallOnAppQuit = true;
-      autoUpdater.autoRunAppAfterInstall = true;
       
-      // Call quitAndInstall and let it handle everything
-      autoUpdater.quitAndInstall(false, true); // silent = false, forceRunAfter = true
+      // Call quitAndInstall with correct parameters
+      // isSilent = false (show installer), isForceRunAfter = true (restart app)
+      autoUpdater.quitAndInstall(false, true);
       
       // Don't use process.exit() as it interrupts the installer!
       // electron-updater needs to control the shutdown process
