@@ -24,6 +24,7 @@
   "build": {
     "appId": "com.radpal.app",
     "productName": "RadPal",
+    "artifactName": "${productName}.Setup.${version}.${ext}",
     "publish": [{
       "provider": "github",
       "owner": "ssj4vinh",
