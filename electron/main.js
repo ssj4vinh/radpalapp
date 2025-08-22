@@ -3013,6 +3013,7 @@ let popupWindow = null;
 if (autoUpdater) {
   autoUpdater.autoDownload = false; // Don't auto-download, let user decide
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.forceAllowUpdate = true; // Force allow updates even if app is packaged differently
 
   // Auto-updater event handlers
   autoUpdater.on('checking-for-update', () => {
@@ -3137,23 +3138,16 @@ ipcMain.handle('install-update', () => {
     // Force quit and install
     setTimeout(() => {
       console.log('🔄 Calling quitAndInstall...');
-      autoUpdater.quitAndInstall(true, true); // silent = true, forceRunAfter = true
       
-      // Aggressive fallback - if app doesn't quit in 2 seconds, force it
-      setTimeout(() => {
-        console.log('⚠️ Force exiting app for update...');
-        if (process.platform === 'win32') {
-          // Use PowerShell to kill this process and all children
-          const currentPid = process.pid;
-          try {
-            spawnSync('powershell', [
-              '-Command',
-              `Stop-Process -Id ${currentPid} -Force`
-            ], { timeout: 1000 });
-          } catch (e) {}
-        }
-        process.exit(0);
-      }, 2000);
+      // Set auto-install flags
+      autoUpdater.autoInstallOnAppQuit = true;
+      autoUpdater.autoRunAppAfterInstall = true;
+      
+      // Call quitAndInstall and let it handle everything
+      autoUpdater.quitAndInstall(false, true); // silent = false, forceRunAfter = true
+      
+      // Don't use process.exit() as it interrupts the installer!
+      // electron-updater needs to control the shutdown process
     }, 500);
   }
 });
@@ -3474,9 +3468,10 @@ let isUpdating = false;
 
 // Single consolidated cleanup handler
 app.on('before-quit', (event) => {
-  // Skip cleanup if we're updating
+  // Skip cleanup if we're updating - let electron-updater handle it
   if (isUpdating) {
-    console.log('🔄 Skipping cleanup for auto-update...');
+    console.log('🔄 Auto-update in progress, allowing electron-updater to control shutdown...');
+    // Don't prevent default or do any cleanup
     return;
   }
   
