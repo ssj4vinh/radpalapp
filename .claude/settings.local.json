@@ -81,7 +81,10 @@
       "Bash(cmd.exe /c \"node_modules\\.bin\\electron.cmd .\")",
       "Bash(cmd.exe:*)",
       "Bash(git filter-branch:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(git tag:*)",
+      "Bash(gh release create:*)",
+      "Bash(npm version:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
