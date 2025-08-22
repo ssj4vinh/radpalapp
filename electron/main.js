@@ -3078,7 +3078,18 @@ ipcMain.handle('download-update', async () => {
 
 ipcMain.handle('install-update', () => {
   if (autoUpdater) {
-    autoUpdater.quitAndInstall();
+    console.log('🔄 Installing update, marking as updating...');
+    isUpdating = true;
+    
+    // Force close all windows first
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.destroy();
+    });
+    
+    // Let electron-updater handle the rest
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(false, true);
+    }, 100);
   }
 });
 
@@ -3394,9 +3405,16 @@ app.on('window-all-closed', () => {
 
 // Track if we're already cleaning up
 let isCleaningUp = false;
+let isUpdating = false;
 
 // Single consolidated cleanup handler
 app.on('before-quit', (event) => {
+  // Skip cleanup if we're updating
+  if (isUpdating) {
+    console.log('🔄 Skipping cleanup for auto-update...');
+    return;
+  }
+  
   // Only run cleanup once
   if (isCleaningUp) {
     return;
@@ -3477,6 +3495,12 @@ app.on('before-quit', (event) => {
 
 // Backup handler to ensure app quits
 app.on('will-quit', () => {
+  // Skip if we're updating
+  if (isUpdating) {
+    console.log('🔄 Auto-update in progress, skipping will-quit cleanup');
+    return;
+  }
+  
   console.log('🛑 Final cleanup before quit...');
   
   // Force kill any remaining processes
