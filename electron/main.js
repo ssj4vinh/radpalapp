@@ -3270,9 +3270,8 @@ ipcMain.handle('launch-autofill-hotkeys', () => {
       console.warn('⚠️ Could not check tasklist, proceeding with launch');
     }
 
-    // Launch the process and track it
-    radpalHotkeysProcess = spawn(exePath, [], { detached: true, stdio: 'ignore' });
-    radpalHotkeysProcess.unref();
+    // Launch the process and track it (attached to parent)
+    radpalHotkeysProcess = spawn(exePath, [], { stdio: 'ignore' });
     
     // Handle process exit
     radpalHotkeysProcess.on('exit', (code) => {
@@ -3356,9 +3355,8 @@ return`;
   compileAhkCrossPlatform(ahkCompiler, scriptPath, exePath, binFile)
     .then(() => {
       if (process.platform === 'win32') {
-        // Launch and track the new process
-        radpalHotkeysProcess = spawn(exePath, { detached: true, stdio: 'ignore' });
-        radpalHotkeysProcess.unref();
+        // Launch and track the new process (attached to parent)
+        radpalHotkeysProcess = spawn(exePath, [], { stdio: 'ignore' });
         
         // Handle process exit
         radpalHotkeysProcess.on('exit', (code) => {
@@ -3394,12 +3392,20 @@ app.on('window-all-closed', () => {
   }
 })
 
+// Track if we're already cleaning up
+let isCleaningUp = false;
+
 // Single consolidated cleanup handler
 app.on('before-quit', (event) => {
-  console.log('🛑 App is quitting, cleaning up resources...');
+  // Only run cleanup once
+  if (isCleaningUp) {
+    return;
+  }
   
-  // Prevent quit until cleanup is done
-  event.preventDefault();
+  console.log('🛑 App is quitting, cleaning up resources...');
+  isCleaningUp = true;
+  
+  // Don't prevent quit, just do cleanup quickly
   
   // Clear any intervals
   if (windowMonitorInterval) {
@@ -3408,68 +3414,81 @@ app.on('before-quit', (event) => {
   }
   
   // Unregister all shortcuts
-  globalShortcut.unregisterAll();
+  try {
+    globalShortcut.unregisterAll();
+  } catch (e) {}
   
   // Stop llama.cpp server
   stopLlamaServer();
   
   // Cleanup Power Mic III
   if (powerMicManager) {
-    console.log('🛑 Cleaning up Power Mic III...');
     try {
       powerMicManager.cleanup();
-    } catch (error) {
-      console.error('❌ Error cleaning up Power Mic III:', error);
-    }
+    } catch (error) {}
   }
   
   // Cleanup dictation
   if (deepgramDictationManager) {
-    console.log('🛑 Cleaning up Deepgram dictation...');
     try {
       deepgramDictationManager.stopDictation();
-    } catch (error) {
-      console.error('❌ Error stopping Deepgram dictation:', error);
-    }
+    } catch (error) {}
   }
 
-  // Clean up RadPalHotkeys process
-  if (radpalHotkeysProcess && !radpalHotkeysProcess.killed) {
-    console.log('🛑 Terminating RadPalHotkeys.exe process...');
+  // Kill ALL RadPal processes on Windows
+  if (process.platform === 'win32') {
+    console.log('🛑 Killing all RadPal processes...');
+    
+    // Kill all RadPal related processes
+    const processesToKill = [
+      'RadPalHotkeys.exe',
+      'llama-server.exe',
+      'radpal.exe'
+    ];
+    
+    for (const processName of processesToKill) {
+      try {
+        // Use /T flag to kill process tree
+        spawnSync('taskkill', ['/F', '/IM', processName, '/T'], { timeout: 1000 });
+      } catch (e) {}
+    }
+    
+    // Also kill by window title in case the process name is different
     try {
-      // Force kill since we're exiting
-      if (process.platform === 'win32') {
-        spawnSync('taskkill', ['/pid', radpalHotkeysProcess.pid, '/f', '/t']);
-      } else {
-        radpalHotkeysProcess.kill('SIGKILL');
-      }
-      radpalHotkeysProcess = null;
-    } catch (e) {
-      console.error('❌ Error killing RadPalHotkeys process:', e);
-    }
+      spawnSync('taskkill', ['/F', '/FI', 'WINDOWTITLE eq RadPal*'], { timeout: 1000 });
+    } catch (e) {}
   }
+  
+  // Clean up tracked RadPalHotkeys process
+  if (radpalHotkeysProcess) {
+    try {
+      radpalHotkeysProcess.kill('SIGKILL');
+      radpalHotkeysProcess = null;
+    } catch (e) {}
+  }
+  
+  // Destroy all windows
+  try {
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.destroy();
+    });
+  } catch (e) {}
+});
 
-  // Also use taskkill as fallback for any orphaned processes
+// Backup handler to ensure app quits
+app.on('will-quit', () => {
+  console.log('🛑 Final cleanup before quit...');
+  
+  // Force kill any remaining processes
   if (process.platform === 'win32') {
     try {
-      spawnSync('taskkill', ['/F', '/IM', 'RadPalHotkeys.exe'], { timeout: 2000 });
-    } catch (e) {
-      // Ignore errors here
-    }
+      // Kill EVERYTHING RadPal related using wildcard
+      spawnSync('powershell', [
+        '-Command',
+        'Get-Process | Where-Object {$_.ProcessName -like "*radpal*" -or $_.ProcessName -eq "llama-server"} | Stop-Process -Force'
+      ], { timeout: 2000 });
+    } catch (e) {}
   }
-  
-  // Close all windows
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.destroy();
-  }
-  if (popupWindow && !popupWindow.isDestroyed()) {
-    popupWindow.destroy();
-  }
-  
-  // Force quit after cleanup
-  setTimeout(() => {
-    app.exit(0);
-  }, 500);
 });
 
 
