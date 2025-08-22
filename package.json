@@ -1,6 +1,6 @@
 {
   "name": "radpal",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI-powered radiology reporting assistant",
   "author": "RadPal Team",
   "repository": {
@@ -25,11 +25,13 @@
     "appId": "com.radpal.app",
     "productName": "RadPal",
     "artifactName": "${productName}-Setup-${version}.${ext}",
-    "publish": [{
-      "provider": "github",
-      "owner": "ssj4vinh",
-      "repo": "radpalapp"
-    }],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ssj4vinh",
+        "repo": "radpalapp"
+      }
+    ],
     "asar": true,
     "files": [
       "dist/**/*",
