@@ -1002,20 +1002,13 @@ function stopLlamaServer() {
     console.log('Stopping llama.cpp server...');
     
     try {
-      // Try graceful shutdown first
+      // Force kill immediately since we need to ensure it stops
       if (process.platform === 'win32') {
-        // On Windows, use taskkill for cleaner shutdown
-        spawnSync('taskkill', ['/pid', llamaServerProcess.pid, '/f']);
+        // Windows: use taskkill with tree flag to kill child processes too
+        spawnSync('taskkill', ['/pid', llamaServerProcess.pid, '/f', '/t']);
       } else {
-        llamaServerProcess.kill('SIGTERM');
+        llamaServerProcess.kill('SIGKILL');
       }
-      
-      // Give it a moment to close gracefully
-      setTimeout(() => {
-        if (llamaServerProcess) {
-          llamaServerProcess.kill('SIGKILL');
-        }
-      }, 1000);
       
     } catch (error) {
       console.error('Error stopping llama.cpp server:', error);
@@ -1023,6 +1016,15 @@ function stopLlamaServer() {
     
     llamaServerProcess = null;
     llamaServerReady = false;
+  }
+  
+  // Also kill any orphaned llama-server processes
+  if (process.platform === 'win32') {
+    try {
+      spawnSync('taskkill', ['/F', '/IM', 'llama-server.exe'], { timeout: 2000 });
+    } catch (e) {
+      // Ignore errors
+    }
   }
 }
 
@@ -3387,20 +3389,33 @@ return`;
 
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
 })
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
+// Single consolidated cleanup handler
+app.on('before-quit', (event) => {
+  console.log('🛑 App is quitting, cleaning up resources...');
+  
+  // Prevent quit until cleanup is done
+  event.preventDefault();
+  
+  // Clear any intervals
+  if (windowMonitorInterval) {
+    clearInterval(windowMonitorInterval);
+    windowMonitorInterval = null;
+  }
+  
+  // Unregister all shortcuts
+  globalShortcut.unregisterAll();
   
   // Stop llama.cpp server
-  stopLlamaServer()
-})
-
-app.on('will-quit', () => {
-  // Cleanup Power Mic III on app exit
+  stopLlamaServer();
+  
+  // Cleanup Power Mic III
   if (powerMicManager) {
-    console.log('🛑 Cleaning up Power Mic III on app exit...');
+    console.log('🛑 Cleaning up Power Mic III...');
     try {
       powerMicManager.cleanup();
     } catch (error) {
@@ -3408,38 +3423,53 @@ app.on('will-quit', () => {
     }
   }
   
-  // Cleanup dictation on app exit
+  // Cleanup dictation
   if (deepgramDictationManager) {
-    console.log('🛑 Cleaning up Deepgram dictation on app exit...');
+    console.log('🛑 Cleaning up Deepgram dictation...');
     try {
       deepgramDictationManager.stopDictation();
     } catch (error) {
-      console.error('❌ Error stopping Deepgram dictation on exit:', error);
+      console.error('❌ Error stopping Deepgram dictation:', error);
     }
   }
 
-  // Clean up tracked RadPalHotkeys process
+  // Clean up RadPalHotkeys process
   if (radpalHotkeysProcess && !radpalHotkeysProcess.killed) {
-    console.log('🛑 Terminating tracked RadPalHotkeys.exe process on app exit');
+    console.log('🛑 Terminating RadPalHotkeys.exe process...');
     try {
-      radpalHotkeysProcess.kill();
+      // Force kill since we're exiting
+      if (process.platform === 'win32') {
+        spawnSync('taskkill', ['/pid', radpalHotkeysProcess.pid, '/f', '/t']);
+      } else {
+        radpalHotkeysProcess.kill('SIGKILL');
+      }
       radpalHotkeysProcess = null;
     } catch (e) {
-      console.error('❌ Error killing tracked RadPalHotkeys process:', e);
+      console.error('❌ Error killing RadPalHotkeys process:', e);
     }
   }
 
-  // Also use taskkill as fallback
-  try {
-    const result = spawnSync('taskkill', ['/F', '/IM', 'RadPalHotkeys.exe']);
-    if (result.status === 0) {
-      console.log('🛑 RadPalHotkeys.exe terminated on app exit');
-    } else {
-      console.warn('⚠️ taskkill returned non-zero status:', result.status);
+  // Also use taskkill as fallback for any orphaned processes
+  if (process.platform === 'win32') {
+    try {
+      spawnSync('taskkill', ['/F', '/IM', 'RadPalHotkeys.exe'], { timeout: 2000 });
+    } catch (e) {
+      // Ignore errors here
     }
-  } catch (e) {
-    console.error('❌ Error terminating RadPalHotkeys.exe:', e);
   }
+  
+  // Close all windows
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.destroy();
+  }
+  if (popupWindow && !popupWindow.isDestroyed()) {
+    popupWindow.destroy();
+  }
+  
+  // Force quit after cleanup
+  setTimeout(() => {
+    app.exit(0);
+  }, 500);
 });
 
 
