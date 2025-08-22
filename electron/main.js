@@ -3135,6 +3135,11 @@ ipcMain.handle('install-update', () => {
       } catch (e) {}
     });
     
+    // Unregister all shortcuts
+    try {
+      globalShortcut.unregisterAll();
+    } catch (e) {}
+    
     // Force quit and install
     setTimeout(() => {
       console.log('🔄 Calling quitAndInstall...');
@@ -3142,12 +3147,15 @@ ipcMain.handle('install-update', () => {
       // Set auto-install flags
       autoUpdater.autoInstallOnAppQuit = true;
       
-      // Call quitAndInstall with correct parameters
-      // isSilent = false (show installer), isForceRunAfter = true (restart app)
-      autoUpdater.quitAndInstall(false, true);
+      // Call quitAndInstall with silent install but force restart
+      // isSilent = true (silent install), isForceRunAfter = true (restart app)
+      autoUpdater.quitAndInstall(true, true);
       
-      // Don't use process.exit() as it interrupts the installer!
-      // electron-updater needs to control the shutdown process
+      // Force the app to actually quit after a delay
+      setTimeout(() => {
+        console.log('⚠️ Force quitting app for update...');
+        app.exit(0);
+      }, 1000);
     }, 500);
   }
 });
