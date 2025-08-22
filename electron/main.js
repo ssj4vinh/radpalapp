@@ -3415,13 +3415,6 @@ app.on('will-quit', () => {
     } catch (error) {
       console.error('❌ Error stopping Deepgram dictation on exit:', error);
     }
-  } else if (dictationManager) {
-    console.log('🛑 Cleaning up dictation on app exit...');
-    try {
-      dictationManager.stopDictation();
-    } catch (error) {
-      console.error('❌ Error stopping dictation on exit:', error);
-    }
   }
 
   // Clean up tracked RadPalHotkeys process
