@@ -84,7 +84,8 @@
       "runAfterFinish": true,
       "license": "LICENSE.txt",
       "warningsAsErrors": false,
-      "differentialPackage": false
+      "differentialPackage": false,
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": "dmg"

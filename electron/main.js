@@ -3147,9 +3147,21 @@ ipcMain.handle('install-update', () => {
       // Set auto-install flags
       autoUpdater.autoInstallOnAppQuit = true;
       
-      // Call quitAndInstall with silent install but force restart
-      // isSilent = true (silent install), isForceRunAfter = true (restart app)
-      autoUpdater.quitAndInstall(true, true);
+      // Call quitAndInstall with parameters to force restart
+      const options = {
+        isSilent: true,  // Silent install
+        isForceRunAfter: true,  // Force run after install
+        // For newer versions of electron-updater
+        execDetached: true  // Run app detached from installer
+      };
+      
+      // Try both methods for compatibility
+      try {
+        autoUpdater.quitAndInstall(options);
+      } catch (e) {
+        // Fallback to boolean parameters
+        autoUpdater.quitAndInstall(true, true);
+      }
       
       // Force the app to actually quit after a delay
       setTimeout(() => {
